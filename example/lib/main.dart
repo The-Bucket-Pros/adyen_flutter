@@ -14,9 +14,9 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String? _payment_result = 'Unknown';
+  String _payment_result = 'Unknown';
 
-  String? dropInResponse;
+  late String dropInResponse;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,10 @@ class _MyAppState extends State<MyApp> {
                   shopperReference: 'asdasda',
                   returnUrl: 'http://asd.de',
                   amount: '1230',
-                  lineItem: {'id': '1', 'description': 'adyen test'},
+                  merchantAccount: '',
+                  lineItems: [
+                    {'id': '1', 'description': 'adyen test'}
+                  ],
                   currency: 'EUR',
                   additionalData: {});
             } on PlatformException catch (e) {

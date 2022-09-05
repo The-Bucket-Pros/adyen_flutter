@@ -43,6 +43,7 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
         let arguments = call.arguments as? [String: Any]
         let paymentMethodsResponse = arguments?["paymentMethods"] as? String
         baseURL = arguments?["baseUrl"] as? String
+        authToken = arguments?["authToken"] as? String
         merchantAccount = arguments?["merchantAccount"] as? String
         additionalData = arguments?["additionalData"] as? [String: String]
         clientKey = arguments?["clientKey"] as? String
@@ -53,14 +54,14 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
         reference = arguments?["reference"] as? String
         returnUrl = arguments?["returnUrl"] as? String
         shopperReference = arguments?["shopperReference"] as? String
-        shopperLocale = String((arguments?["locale"] as? String)?.split(separator: "_").last ?? "DE")
+        shopperLocale = String((arguments?["locale"] as? String)?.split(separator: "_").last ?? "IT")
         mResult = result
 
         guard let paymentData = paymentMethodsResponse?.data(using: .utf8),
               let paymentMethods = try? JSONDecoder().decode(PaymentMethods.self, from: paymentData) else {
             return
         }
-
+        
         var ctx = Environment.test
         if(environment == "LIVE_US") {
             ctx = Environment.liveUnitedStates
@@ -69,12 +70,12 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
         } else if (environment == "LIVE_EUROPE"){
             ctx = Environment.liveEurope
         }
-
+        
         let dropInComponentStyle = DropInComponent.Style()
-
+        
         let apiContext = APIContext(environment: ctx, clientKey: clientKey!)
         let configuration = DropInComponent.Configuration(apiContext: apiContext);
-        configuration.card.showsHolderNameField = true
+        configuration.card.showsHolderNameField = false
         dropInComponent = DropInComponent(paymentMethods: paymentMethods, configuration: configuration, style: dropInComponentStyle)
         dropInComponent?.delegate = self
 
@@ -103,20 +104,22 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
         guard let baseURL = baseURL, let url = URL(string: baseURL + "payments") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue("\(authToken!)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("PHPSTORM", forHTTPHeaderField: "XDEBUG_SESSION_START")
 
         let amountAsInt = Int(amount ?? "0")
         // prepare json data
         let paymentMethod = data.paymentMethod.encodable
-
-        guard let lineItem = try? JSONDecoder().decode(LineItem.self, from: JSONSerialization.data(withJSONObject: lineItemJson ?? ["":""]) ) else{ self.didFail(with: PaymentError(), from: component)
-            return
-        }
-
+        let lineItem = try? JSONDecoder().decode(LineItem.self, from: JSONSerialization.data(withJSONObject: lineItemJson ?? ["":""]) )
+//         if lineItem == nil {
+//             self.didFail(with: PaymentError(), from: component)
+//             return
+//         }
         let paymentRequest = PaymentRequest(
             payment: Payment(
                 paymentMethod: paymentMethod,
-                lineItem: lineItem,
+                lineItem: LineItem(id: "", description: ""), // lineItem ?? LineItem(id: "", description: ""),
                 currency: currency ?? "",
                 merchantAccount: merchantAccount ?? "",
                 reference: reference,
@@ -142,6 +145,7 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
                 }
             }.resume()
         } catch {
+            print()
             didFail(with: PaymentError(), from: component)
         }
 
@@ -176,7 +180,9 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
         guard let baseURL = baseURL, let url = URL(string: baseURL + "payments/details") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue("\(authToken!)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
         let detailsRequest = DetailsRequest(paymentData: data.paymentData ?? "", details: data.details.encodable)
         do {
             let detailsRequestData = try JSONEncoder().encode(detailsRequest)
